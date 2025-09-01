@@ -27,9 +27,8 @@ npm install @waelhabbaldev/mysql2-dx mysql2 zod
 # Quick Start
 
 ```javascript
-
 import { z } from "zod";
-import { createDatabaseClient } from "@your-npm-username/mysql2-dx";
+import { createDatabaseClient } from "@waelhabbaldev/mysql2-dx";
 
 // 1. Define your data schema
 const userSchema = z.object({
@@ -65,10 +64,10 @@ async function main() {
 }
 
 main();
-
 ```
 
 # API Reference
+
 The DatabaseClient instance provides the following core methods. All select methods have a corresponding ...Unsafe version.
 
 - selectSingle(query, params, schema)
@@ -81,6 +80,6 @@ The DatabaseClient instance provides the following core methods. All select meth
 - executeTransaction(callback)
 - close()
 
-
 # License
- This project is licensed under the MIT License.
+
+This project is licensed under the MIT License.
