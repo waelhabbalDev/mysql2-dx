@@ -1,14 +1,20 @@
-# MySQL-DX (Developer Experience)
+# MySQL-DX
 
-A modern, type-safe MySQL client for Node.js with first-class Zod integration for runtime validation, a fluent API, and robust transaction management.
+[![NPM Version](https://img.shields.io/npm/v/@waelhabbaldev/mysql2-dx.svg)](https://www.npmjs.com/package/@waelhabbaldev/mysql2-dx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+**A lightweight, type-safe MySQL client for Node.js. Adds robust Zod schema validation, a fluent API, and simple transaction management to `mysql2/promise`.**
 
-- ✅ **Type-Safe by Default:** Queries are validated at runtime with Zod schemas.
-- 🔥 **High-Performance "Unsafe" Mode:** Bypass validation for performance-critical operations.
-- 🗂️ **Robust Transactions:** Simple, promise-based API with automatic commit/rollback.
-- 🔧 **Ergonomic API:** Simple methods for `insert`, `update`, and `delete`.
-- ⚙️ **Connection Pooling:** Built on `mysql2/promise` for efficient connection management.
+`mysql2-dx` is designed to bridge the gap between using raw `mysql2` and a heavy, full-featured ORM. It provides essential quality-of-life features like runtime validation and ergonomic helpers without sacrificing performance or forcing you into complex abstractions.
+
+## Key Features
+
+- ✅ **Type-Safe by Default:** Leverage the power of Zod to validate database results at runtime, eliminating an entire class of bugs.
+- 🔥 **High-Performance "Unsafe" Mode:** Bypass Zod validation with `...Unsafe` methods for performance-critical queries where speed is paramount.
+- 🗂️ **Robust Transactions:** A simple, promise-based `executeTransaction` API with automatic commit and rollback.
+- 🔧 **Ergonomic CRUD Helpers:** Clean, simple methods for `insert`, `update`, and `delete` operations.
+- ⚙️ **Built on `mysql2/promise`:** Uses the fast, popular, and reliable `mysql2` driver with connection pooling for efficient database communication.
+- 🌐 **Flexible Configuration:** Configure via environment variables (`.env`) or a direct config object.
 
 ## Installation
 
@@ -21,6 +27,7 @@ npm install @waelhabbaldev/mysql2-dx mysql2 zod
 # Quick Start
 
 ```javascript
+
 import { z } from "zod";
 import { createDatabaseClient } from "@your-npm-username/mysql2-dx";
 
@@ -58,4 +65,22 @@ async function main() {
 }
 
 main();
+
 ```
+
+# API Reference
+The DatabaseClient instance provides the following core methods. All select methods have a corresponding ...Unsafe version.
+
+- selectSingle(query, params, schema)
+- selectSingleOrDefault(query, params, schema)
+- selectMany(query, params, schema)
+- modify(query, params)
+- insert(table, data)
+- update(table, data, where)
+- delete(table, where)
+- executeTransaction(callback)
+- close()
+
+
+# License
+ This project is licensed under the MIT License.
