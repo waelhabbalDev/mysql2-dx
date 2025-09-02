@@ -1,6 +1,6 @@
 {
   "name": "@waelhabbaldev/mysql2-dx",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A modern, type-safe MySQL client for Node.js with runtime validation via Zod.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
