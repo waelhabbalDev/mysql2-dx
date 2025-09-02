@@ -1,4 +1,4 @@
-# mysql2-dx v1.0.3
+# mysql2-dx v1.0.4
 
 [![NPM Version](https://img.shields.io/npm/v/@waelhabbaldev/mysql2-dx.svg)](https://www.npmjs.com/package/@waelhabbaldev/mysql2-dx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -104,7 +104,7 @@ async function transferFunds(fromId: string, toId: string, amount: number) {
 
 ---
 
-### ✨ New in v1.0.3: Batch Operations
+### ✨ New in v1.0.4: Batch Operations
 
 Reduce network latency by sending multiple queries to the database in a single round trip. This is ideal for dashboards or pages that need to fetch several different pieces of data.
 
