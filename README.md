@@ -1,7 +1,7 @@
 # mysql2-dx v1.0.3
 
-![NPM](https://img.shields.io/npm/v/mysql2-dx)
-![License](https://img.shields.io/npm/l/mysql2-dx)
+[![NPM Version](https://img.shields.io/npm/v/@waelhabbaldev/mysql2-dx.svg)](https://www.npmjs.com/package/@waelhabbaldev/mysql2-dx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **A modern, type-safe MySQL client for Node.js, featuring runtime validation with Zod, robust transactions, and efficient batch querying.**
 
