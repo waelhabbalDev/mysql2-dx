@@ -15,39 +15,26 @@ const envSchema = zod_1.z.object({
     MYSQL_PASSWORD: zod_1.z.string(),
     MYSQL_DATABASE: zod_1.z.string(),
 });
-/**
- * @internal
- * This class implements the QueryRunner interface for a transaction.
- * It ensures all operations are piped through a single database connection.
- */
+/** @internal */
 class Transaction {
     constructor(client, conn) {
         this.client = client;
         this.conn = conn;
-        // Safe methods
-        this.selectSingle = (query, params, schema) => this.client.selectSingle(query, params, schema, this.conn);
-        this.selectSingleOrDefault = (query, params, schema) => this.client.selectSingleOrDefault(query, params, schema, this.conn);
-        this.selectMany = (query, params, schema) => this.client.selectMany(query, params, schema, this.conn);
-        // CRUD/Modify
-        this.modify = (query, params) => this.client.modify(query, params, this.conn);
-        this.insert = (table, data) => this.client.insert(table, data, this.conn);
-        this.update = (table, data, where) => this.client.update(table, data, where, this.conn);
-        this.delete = (table, where) => this.client.delete(table, where, this.conn);
-        // Unsafe methods
-        this.selectSingleUnsafe = (query, params) => this.client.selectSingleUnsafe(query, params, this.conn);
-        this.selectSingleOrDefaultUnsafe = (query, params) => this.client.selectSingleOrDefaultUnsafe(query, params, this.conn);
-        this.selectManyUnsafe = (query, params) => this.client.selectManyUnsafe(query, params, this.conn);
+        this.selectSingle = (q, p, s) => this.client.selectSingle(q, p, s, this.conn);
+        this.selectSingleOrDefault = (q, p, s) => this.client.selectSingleOrDefault(q, p, s, this.conn);
+        this.selectMany = (q, p, s) => this.client.selectMany(q, p, s, this.conn);
+        this.modify = (q, p) => this.client.modify(q, p, this.conn);
+        this.insert = (t, d) => this.client.insert(t, d, this.conn);
+        this.update = (t, d, w) => this.client.update(t, d, w, this.conn);
+        this.delete = (t, w) => this.client.delete(t, w, this.conn);
+        this.selectSingleUnsafe = (q, p) => this.client.selectSingleUnsafe(q, p, this.conn);
+        this.selectSingleOrDefaultUnsafe = (q, p) => this.client.selectSingleOrDefaultUnsafe(q, p, this.conn);
+        this.selectManyUnsafe = (q, p) => this.client.selectManyUnsafe(q, p, this.conn);
+        this.executeBatchUnsafe = (queries) => this.client.executeBatchUnsafe(queries, this.conn);
+        this.executeBatch = (queries, schemas) => this.client.executeBatch(queries, schemas, this.conn);
     }
 }
-/**
- * A modern, type-safe MySQL client for Node.js, featuring runtime validation
- * with Zod, a fluent API, and robust transaction management.
- */
 class DatabaseClient {
-    /**
-     * Creates a new instance of the DatabaseClient.
-     * @param options Configuration options for the client.
-     */
     constructor(options = {}) {
         this.log = (entry, logFn = logger_1.default.info) => {
             if (this.verbose)
@@ -59,7 +46,7 @@ class DatabaseClient {
         try {
             if (config) {
                 this.log({ message: "Using provided configuration object." });
-                this.pool = promise_1.default.createPool(config);
+                this.pool = promise_1.default.createPool({ ...config, multipleStatements: true });
             }
             else if (useEnv) {
                 this.log({
@@ -67,14 +54,19 @@ class DatabaseClient {
                 });
                 const env = envSchema.parse(process.env);
                 this.pool = promise_1.default.createPool({
-                    ...env,
+                    host: env.MYSQL_HOST,
+                    port: env.MYSQL_PORT,
+                    user: env.MYSQL_USER,
+                    password: env.MYSQL_PASSWORD,
+                    database: env.MYSQL_DATABASE,
                     waitForConnections: true,
                     connectionLimit: 10,
                     queueLimit: 0,
+                    multipleStatements: true,
                 });
             }
             else {
-                throw new errors_1.DatabaseError("No database configuration provided. Either pass a config object or set useEnv to true.");
+                throw new errors_1.DatabaseError("No database configuration provided.");
             }
         }
         catch (error) {
@@ -88,9 +80,16 @@ class DatabaseClient {
             return executor.query(query, params);
         }
         const startTime = performance.now();
+        // Refined logging for clarity, especially for batch queries
+        const isBatch = query.includes(";") && Array.isArray(params) && params.length === 0;
         this.log({
-            title: "[DB QUERY]",
-            message: promise_1.default.format(query, Array.isArray(params) ? params : [params]),
+            title: isBatch ? "[DB BATCH]" : "[DB QUERY]",
+            message: isBatch
+                ? `\n${query
+                    .split(";")
+                    .map((q) => `  -> ${q.trim()}`)
+                    .join("\n")}`
+                : promise_1.default.format(query, Array.isArray(params) ? params : [params]),
         });
         try {
             const result = await executor.query(query, params);
@@ -101,7 +100,7 @@ class DatabaseClient {
                 : rows.affectedRows ?? 0;
             this.log({
                 title: "[DB SUCCESS]",
-                message: `(${affectedRows} rows, ${duration}ms)`,
+                message: `(${affectedRows} total rows/results, ${duration}ms)`,
             }, logger_1.default.success);
             return result;
         }
@@ -150,8 +149,7 @@ class DatabaseClient {
             throw new errors_1.DatabaseError("Invalid table name.");
         if (Object.keys(data).length === 0)
             throw new errors_1.DatabaseError("Insert data cannot be empty.");
-        const query = `INSERT INTO ?? SET ?`;
-        return this.modify(query, [table, data], connection);
+        return this.modify(`INSERT INTO ?? SET ?`, [table, data], connection);
     }
     async update(table, data, where, connection) {
         if (!/^[a-zA-Z0-9_]+$/.test(table))
@@ -159,17 +157,15 @@ class DatabaseClient {
         if (Object.keys(data).length === 0)
             throw new errors_1.DatabaseError("Update data cannot be empty.");
         if (Object.keys(where).length === 0)
-            throw new errors_1.DatabaseError("Update 'where' clause cannot be empty to prevent accidental full-table updates.");
-        const query = `UPDATE ?? SET ? WHERE ?`;
-        return this.modify(query, [table, data, where], connection);
+            throw new errors_1.DatabaseError("Update 'where' clause cannot be empty.");
+        return this.modify(`UPDATE ?? SET ? WHERE ?`, [table, data, where], connection);
     }
     async delete(table, where, connection) {
         if (!/^[a-zA-Z0-9_]+$/.test(table))
             throw new errors_1.DatabaseError("Invalid table name.");
         if (Object.keys(where).length === 0)
-            throw new errors_1.DatabaseError("Delete 'where' clause cannot be empty to prevent accidental full-table deletes.");
-        const query = `DELETE FROM ?? WHERE ?`;
-        return this.modify(query, [table, where], connection);
+            throw new errors_1.DatabaseError("Delete 'where' clause cannot be empty.");
+        return this.modify(`DELETE FROM ?? WHERE ?`, [table, where], connection);
     }
     async selectSingleUnsafe(query, params, connection) {
         const [rows] = await this._executeQuery(connection ?? this.pool, query, params);
@@ -189,14 +185,6 @@ class DatabaseClient {
             throw new errors_1.DatabaseError("Query did not return an array of rows (unsafe search).");
         return rows;
     }
-    /**
-     * Executes a series of database operations within a transaction.
-     * If the callback function resolves, the transaction is committed.
-     * If it throws an error, the transaction is automatically rolled back.
-     * The connection is always released back to the pool.
-     * @param callback An async function that receives a transactional `QueryRunner` instance.
-     * @returns A promise that resolves with the return value of the callback.
-     */
     async executeTransaction(callback) {
         const connection = await this.pool.getConnection();
         this.log({ message: "Transaction started." });
@@ -217,19 +205,37 @@ class DatabaseClient {
             connection.release();
         }
     }
-    /**
-     * Gracefully closes the database connection pool.
-     */
     async close() {
         this.log({ message: "Closing database connection pool." });
         await this.pool.end();
     }
+    async executeBatchUnsafe(queries, connection) {
+        if (queries.length === 0)
+            return [];
+        const formattedSql = queries
+            .map((q) => promise_1.default.format(q.sql, q.params || []))
+            .join("; ");
+        const [results] = await this._executeQuery(connection ?? this.pool, formattedSql, []);
+        return results;
+    }
+    async executeBatch(queries, schemas, connection) {
+        if (queries.length !== schemas.length) {
+            throw new errors_1.DatabaseError(`Batch query failed: The number of queries (${queries.length}) must match the number of schemas (${schemas.length}).`);
+        }
+        const rawResults = await this.executeBatchUnsafe(queries, connection);
+        const validatedResults = rawResults.map((result, index) => {
+            const schema = schemas[index];
+            const parsed = schema.safeParse(result);
+            if (!parsed.success) {
+                throw new errors_1.ValidationError(`Validation failed for query #${index + 1} ('${queries[index].sql.substring(0, 50)}...')`, parsed.error);
+            }
+            return parsed.data;
+        });
+        return validatedResults;
+    }
 }
 exports.DatabaseClient = DatabaseClient;
-/**
- * Factory function for creating a `DatabaseClient` instance configured from environment variables.
- * @param options Configuration options, excluding `config` and `useEnv`.
- */
+DatabaseClient.MODIFY_SCHEMA = zod_1.z.custom((val) => typeof val === "object" && val !== null && "affectedRows" in val, "Expected a ResultSetHeader for a modify operation.");
 const createDatabaseClient = (options = {}) => {
     return new DatabaseClient({ ...options, useEnv: true });
 };
