@@ -104,6 +104,36 @@ async function transferFunds(fromId: string, toId: string, amount: number) {
 
 ---
 
+### ✨ New in v1.0.5: Constructor Enhancements and Robust Port Validation ✨
+
+This update introduces a refined `DatabaseClient` constructor and a more robust port validation schema.
+
+We've made the constructor more flexible and intuitive. You can now instantiate the client with an optional configuration object. If provided, this configuration will be used to establish the connection pool. If no configuration is supplied, the client will automatically and safely fall back to using standard `MYSQL_` environment variables.
+
+Additionally, we've improved the port validation to be more precise. The Zod schema for the `MYSQL_PORT` environment variable now strictly ensures the value is an integer and falls within the valid range for TCP ports, from 0 to 65535. This guarantees that your connection is configured with a valid port number, reducing potential runtime errors.
+
+**Example 1: Using an explicit configuration object**
+
+```typescript
+const dbClient = new DatabaseClient({
+  config: {
+    host: 'localhost',
+    port: 3306,
+    user: 'root',
+    password: 'secure_password',
+    database: 'my_app_db',
+  },
+});
+```
+
+**Example 2: Defaulting to environment variables**
+
+```typescript
+// Client will automatically use the standard MYSQL_* environment variables.
+const dbClient = new DatabaseClient(); 
+```
+---
+
 ### ✨ New in v1.0.4: Batch Operations
 
 Reduce network latency by sending multiple queries to the database in a single round trip. This is ideal for dashboards or pages that need to fetch several different pieces of data.

@@ -10,7 +10,11 @@ const errors_1 = require("./errors");
 const logger_1 = __importDefault(require("./utils/logger"));
 const envSchema = zod_1.z.object({
     MYSQL_HOST: zod_1.z.string(),
-    MYSQL_PORT: zod_1.z.string().transform(Number),
+    MYSQL_PORT: zod_1.z.coerce
+        .number()
+        .positive()
+        .min(0, "Port number must be greater than or equal to 0.")
+        .max(65535, "Port number must be less than or equal to 65535."),
     MYSQL_USER: zod_1.z.string(),
     MYSQL_PASSWORD: zod_1.z.string(),
     MYSQL_DATABASE: zod_1.z.string(),
@@ -40,7 +44,7 @@ class DatabaseClient {
             if (this.verbose)
                 logFn(entry);
         };
-        const { config, useEnv = true, verbose = false } = options;
+        const { config, verbose = false } = options;
         this.verbose = verbose;
         this.log({ message: "Initializing DatabaseClient..." });
         try {
@@ -48,7 +52,7 @@ class DatabaseClient {
                 this.log({ message: "Using provided configuration object." });
                 this.pool = promise_1.default.createPool({ ...config, multipleStatements: true });
             }
-            else if (useEnv) {
+            else {
                 this.log({
                     message: "Loading configuration from environment variables.",
                 });
@@ -64,9 +68,6 @@ class DatabaseClient {
                     queueLimit: 0,
                     multipleStatements: true,
                 });
-            }
-            else {
-                throw new errors_1.DatabaseError("No database configuration provided.");
             }
         }
         catch (error) {
@@ -236,8 +237,6 @@ class DatabaseClient {
 }
 exports.DatabaseClient = DatabaseClient;
 DatabaseClient.MODIFY_SCHEMA = zod_1.z.custom((val) => typeof val === "object" && val !== null && "affectedRows" in val, "Expected a ResultSetHeader for a modify operation.");
-const createDatabaseClient = (options = {}) => {
-    return new DatabaseClient({ ...options, useEnv: true });
-};
+const createDatabaseClient = (options = {}) => new DatabaseClient({ ...options });
 exports.createDatabaseClient = createDatabaseClient;
 //# sourceMappingURL=client.js.map

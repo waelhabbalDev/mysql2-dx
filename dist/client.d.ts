@@ -26,4 +26,4 @@ export declare class DatabaseClient implements QueryRunner {
         -readonly [K in keyof T]: z.infer<T[K]>;
     }>;
 }
-export declare const createDatabaseClient: (options?: Omit<DatabaseClientOptions, "config" | "useEnv">) => DatabaseClient;
+export declare const createDatabaseClient: (options?: Omit<DatabaseClientOptions, "config">) => DatabaseClient;

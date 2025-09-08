@@ -5,7 +5,10 @@ import { z, ZodType } from "zod";
  */
 export type DatabaseClientOptions = {
     config?: PoolOptions;
-    useEnv?: boolean;
+    /**
+     * Optional flag to enable verbose logging for database operations.
+     * Defaults to `false`.
+     */
     verbose?: boolean;
 };
 /**
