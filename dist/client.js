@@ -40,20 +40,25 @@ class Transaction {
 }
 class DatabaseClient {
     constructor(options = {}) {
-        this.log = (entry, logFn = logger_1.default.info) => {
-            if (this.verbose)
-                logFn(entry);
+        this.log = (entry) => {
+            if (this.verbose) {
+                logger_1.default.log(entry);
+            }
         };
         const { config, verbose = false } = options;
         this.verbose = verbose;
-        this.log({ message: "Initializing DatabaseClient..." });
+        this.log({ type: "info", message: "Initializing DatabaseClient..." });
         try {
             if (config) {
-                this.log({ message: "Using provided configuration object." });
+                this.log({
+                    type: "info",
+                    message: "Using provided configuration object.",
+                });
                 this.pool = promise_1.default.createPool({ ...config, multipleStatements: true });
             }
             else {
                 this.log({
+                    type: "info",
                     message: "Loading configuration from environment variables.",
                 });
                 const env = envSchema.parse(process.env);
@@ -72,7 +77,10 @@ class DatabaseClient {
         }
         catch (error) {
             const errorMessage = "Failed to initialize database pool.";
-            this.log({ title: "[DB ERROR]", message: errorMessage }, logger_1.default.error);
+            this.log({
+                type: "error",
+                message: `${errorMessage} Details: ${error.message}`,
+            });
             throw new errors_1.DatabaseError(errorMessage, error);
         }
     }
@@ -81,17 +89,14 @@ class DatabaseClient {
             return executor.query(query, params);
         }
         const startTime = performance.now();
-        // Refined logging for clarity, especially for batch queries
         const isBatch = query.includes(";") && Array.isArray(params) && params.length === 0;
-        this.log({
-            title: isBatch ? "[DB BATCH]" : "[DB QUERY]",
-            message: isBatch
-                ? `\n${query
-                    .split(";")
-                    .map((q) => `  -> ${q.trim()}`)
-                    .join("\n")}`
-                : promise_1.default.format(query, Array.isArray(params) ? params : [params]),
-        });
+        const formattedQuery = isBatch
+            ? `\n${query
+                .split(";")
+                .map((q) => `  -> ${q.trim()}`)
+                .join("\n")}`
+            : promise_1.default.format(query, Array.isArray(params) ? params : [params]);
+        this.log({ type: isBatch ? "batch" : "query", message: formattedQuery });
         try {
             const result = await executor.query(query, params);
             const duration = (performance.now() - startTime).toFixed(2);
@@ -100,17 +105,17 @@ class DatabaseClient {
                 ? rows.length
                 : rows.affectedRows ?? 0;
             this.log({
-                title: "[DB SUCCESS]",
+                type: "success",
                 message: `(${affectedRows} total rows/results, ${duration}ms)`,
-            }, logger_1.default.success);
+            });
             return result;
         }
         catch (error) {
             const duration = (performance.now() - startTime).toFixed(2);
             this.log({
-                title: "[DB ERROR]",
+                type: "error",
                 message: `Query failed after ${duration}ms. Details: ${error.message}`,
-            }, logger_1.default.error);
+            });
             throw error;
         }
     }
@@ -188,18 +193,24 @@ class DatabaseClient {
     }
     async executeTransaction(callback) {
         const connection = await this.pool.getConnection();
-        this.log({ message: "Transaction started." });
+        this.log({ type: "info", message: "Transaction started." });
         await connection.beginTransaction();
         const trx = new Transaction(this, connection);
         try {
             const result = await callback(trx);
             await connection.commit();
-            this.log({ message: "Transaction committed successfully." }, logger_1.default.success);
+            this.log({
+                type: "error",
+                message: "Transaction committed successfully.",
+            });
             return result;
         }
         catch (error) {
             await connection.rollback();
-            this.log({ message: "Transaction rolled back due to an error." }, logger_1.default.error);
+            this.log({
+                type: "error",
+                message: "Transaction rolled back due to an error.",
+            });
             throw error;
         }
         finally {
@@ -207,7 +218,7 @@ class DatabaseClient {
         }
     }
     async close() {
-        this.log({ message: "Closing database connection pool." });
+        this.log({ type: "info", message: "Closing database connection pool." });
         await this.pool.end();
     }
     async executeBatchUnsafe(queries, connection) {

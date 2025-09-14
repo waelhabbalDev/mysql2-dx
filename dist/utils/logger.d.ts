@@ -1,22 +1,40 @@
-export type ColorKey = keyof typeof colors;
-declare const colors: {
-    message: string;
-    success: string;
-    warning: string;
-    danger: string;
-    info: string;
-    hint: string;
+declare const LOG_STYLES: {
+    info: {
+        color: string;
+        title: string;
+    };
+    success: {
+        color: string;
+        title: string;
+    };
+    warning: {
+        color: string;
+        title: string;
+    };
+    error: {
+        color: string;
+        title: string;
+    };
+    query: {
+        color: string;
+        title: string;
+    };
+    batch: {
+        color: string;
+        title: string;
+    };
+    default: {
+        color: string;
+        title: string;
+    };
 };
+export type LogType = keyof typeof LOG_STYLES;
 export interface LogEntry {
+    type: LogType;
     title?: string;
     message: string;
 }
 declare const logger: {
-    message(entry: LogEntry, color?: ColorKey): string;
-    secondary(logEntry: LogEntry): void;
-    info(logEntry: LogEntry): void;
-    success(logEntry: LogEntry): void;
-    warning(logEntry: LogEntry): void;
-    error(logEntry: LogEntry): void;
+    log(entry: LogEntry): void;
 };
 export default logger;

@@ -1,32 +1,35 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const colors = {
-    message: "\x1b[0m",
-    success: "\x1b[32m",
-    warning: "\x1b[33m",
-    danger: "\x1b[31m",
-    info: "\x1b[36m",
-    hint: "\x1b[90m",
+const LOG_STYLES = {
+    // Type      Color Code      Default Title
+    info: { color: "\x1b[36m", title: "[INFO]" }, // Cyan
+    success: { color: "\x1b[32m", title: "[SUCCESS]" }, // Green
+    warning: { color: "\x1b[33m", title: "[WARNING]" }, // Yellow
+    error: { color: "\x1b[31m", title: "[ERROR]" }, // Red
+    query: { color: "\x1b[90m", title: "[DB QUERY]" }, // Grey (Hint)
+    batch: { color: "\x1b[90m", title: "[DB BATCH]" }, // Grey (Hint)
+    default: { color: "\x1b[0m", title: "" }, // Reset
 };
+function formatLog(entry) {
+    const { type, message } = entry;
+    const style = LOG_STYLES[type] || LOG_STYLES.default;
+    const title = entry.title || style.title;
+    const resetColor = LOG_STYLES.default.color;
+    return `${style.color}${title} ${message}${resetColor}`;
+}
 const logger = {
-    message(entry, color = "message") {
-        const title = entry.title || color;
-        return `${colors[color]}${title}${colors[color]} ${entry.message}`;
-    },
-    secondary(logEntry) {
-        this.message(logEntry, "hint");
-    },
-    info(logEntry) {
-        console.log(this.message(logEntry, "info"));
-    },
-    success(logEntry) {
-        console.log(this.message(logEntry, "success"));
-    },
-    warning(logEntry) {
-        console.log(this.message(logEntry, "warning"));
-    },
-    error(logEntry) {
-        console.log(this.message(logEntry, "danger"));
+    log(entry) {
+        switch (entry.type) {
+            case "warning":
+                console.warn(formatLog(entry));
+                break;
+            case "error":
+                console.error(formatLog(entry));
+                break;
+            default:
+                console.log(formatLog(entry));
+                break;
+        }
     },
 };
 exports.default = logger;

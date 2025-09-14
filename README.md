@@ -102,6 +102,30 @@ async function transferFunds(fromId: string, toId: string, amount: number) {
 }
 ```
 
+## ✨ New in v1.0.9: Bulk Inserts with insertMany ✨
+
+This version introduces the highly-requested insertMany method, designed for efficiently inserting large amounts of data in a single database call.
+
+When you need to insert multiple rows (e.g., from a CSV import, API payload, or database seed), making individual insert calls in a loop is inefficient due to network latency and database overhead. The new insertMany method solves this by constructing a single, optimized INSERT INTO ... VALUES (...), (...), ... statement. This dramatically reduces execution time for bulk data operations.
+The method is safe, secure, and leverages the underlying mysql2 driver's powerful parameter formatting to prevent SQL injection. It also works seamlessly within transactions.
+
+Example: Seeding a users table with multiple records.
+
+```typescript
+const newUsers = [
+  { name: 'Alice', email: 'alice@example.com', status: 'active' },
+  { name: 'Bob', email: 'bob@example.com', status: 'pending' },
+  { name: 'Charlie', email: 'charlie@example.com', status: 'active' }
+];
+
+
+// This sends a single, efficient query to the database
+const result = await dbClient.insertMany('users', newUsers);
+
+// The result is a standard ResultSetHeader
+console.log(`${result.affectedRows} users were inserted in a single batch.`);
+```
+
 ---
 
 ### ✨ New in v1.0.5: Constructor Enhancements and Robust Port Validation ✨
