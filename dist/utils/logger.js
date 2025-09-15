@@ -1,14 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const LOG_STYLES = {
-    // Type      Color Code      Default Title
-    info: { color: "\x1b[36m", title: "[INFO]" }, // Cyan
-    success: { color: "\x1b[32m", title: "[SUCCESS]" }, // Green
-    warning: { color: "\x1b[33m", title: "[WARNING]" }, // Yellow
-    error: { color: "\x1b[31m", title: "[ERROR]" }, // Red
-    query: { color: "\x1b[90m", title: "[DB QUERY]" }, // Grey (Hint)
-    batch: { color: "\x1b[90m", title: "[DB BATCH]" }, // Grey (Hint)
-    default: { color: "\x1b[0m", title: "" }, // Reset
+    info: { color: "\x1b[36m", title: "[INFO]" },
+    success: { color: "\x1b[32m", title: "[SUCCESS]" },
+    warning: { color: "\x1b[33m", title: "[WARNING]" },
+    error: { color: "\x1b[31m", title: "[ERROR]" },
+    query: { color: "\x1b[90m", title: "[DB QUERY]" },
+    batch: { color: "\x1b[90m", title: "[DB BATCH]" },
+    default: { color: "\x1b[0m", title: "" },
 };
 function formatLog(entry) {
     const { type, message } = entry;

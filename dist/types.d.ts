@@ -4,7 +4,10 @@ import { z, ZodType } from "zod";
  * Options for constructing a new DatabaseClient instance.
  */
 export type DatabaseClientOptions = {
-    config?: PoolOptions;
+    /**
+     * A complete `mysql2` PoolOptions object. This is now **required**.
+     */
+    config: PoolOptions;
     /**
      * Optional flag to enable verbose logging for database operations.
      * Defaults to `false`.
@@ -16,20 +19,81 @@ export type DatabaseClientOptions = {
  */
 export type MySQLPrimitive = string | number | boolean | Date | Buffer | null;
 /**
- * Represents the collection of parameters for a query.
+ * Represents the collection of parameters for a raw SQL query.
  */
-export type QueryParameters = (MySQLPrimitive | MySQLPrimitive[] | Record<string, MySQLPrimitive>)[] | Record<string, MySQLPrimitive>;
+export type QueryParameters = (MySQLPrimitive | MySQLPrimitive[] | MySQLPrimitive[][] | Record<string, MySQLPrimitive>)[] | Record<string, MySQLPrimitive>;
+type StringOperators = {
+    equals?: string;
+    not?: string;
+    in?: string[];
+    notIn?: string[];
+    lt?: string;
+    lte?: string;
+    gt?: string;
+    gte?: string;
+    contains?: string;
+    startsWith?: string;
+    endsWith?: string;
+};
+type NumericOperators = {
+    equals?: number;
+    not?: number;
+    in?: number[];
+    notIn?: number[];
+    lt?: number;
+    lte?: number;
+    gt?: number;
+    gte?: number;
+};
+type ConditionValue = MySQLPrimitive | StringOperators | NumericOperators;
 /**
- * Represents a single, self-contained SQL statement with its parameters, ready for safe execution.
- * This is the primary input for batch operations.
+ * A rich, object-based structure for building complex WHERE clauses, inspired by Prisma.
+ * This version correctly allows for both dynamic field keys and special logical operator keys.
+ */
+export type WhereCondition = {
+    OR?: WhereCondition[];
+    AND?: WhereCondition[];
+    NOT?: WhereCondition | WhereCondition[];
+    [key: string]: ConditionValue | WhereCondition[] | WhereCondition | undefined;
+};
+/**
+ * Represents a single, raw SQL statement with its parameters for use in a batch.
  */
 export type ParameterizedQuery = {
     sql: string;
     params?: QueryParameters;
 };
 /**
+ * Represents an insert or insertMany operation within a batch.
+ */
+export type InsertBatchOperation = {
+    op: 'insert';
+    table: string;
+    data: Record<string, MySQLPrimitive> | Record<string, MySQLPrimitive>[];
+};
+/**
+ * Represents an update operation within a batch, using the rich WhereCondition.
+ */
+export type UpdateBatchOperation = {
+    op: 'update';
+    table: string;
+    data: Record<string, MySQLPrimitive>;
+    where: WhereCondition;
+};
+/**
+ * Represents a delete operation within a batch, using the rich WhereCondition.
+ */
+export type DeleteBatchOperation = {
+    op: 'delete';
+    table: string;
+    where: WhereCondition;
+};
+/**
+ * A union type representing any valid operation that can be executed in a batch.
+ */
+export type BatchOperation = ParameterizedQuery | InsertBatchOperation | UpdateBatchOperation | DeleteBatchOperation;
+/**
  * Represents the raw, unvalidated result of a single query in a batch.
- * It's either an array of raw database rows or a header for modify operations.
  */
 export type UnsafeQueryResult = RowDataPacket[] | ResultSetHeader;
 /**
@@ -42,33 +106,17 @@ export interface QueryRunner {
     selectMany<T extends ZodType>(query: string, params: QueryParameters, schema: T): Promise<z.infer<T>[]>;
     modify(query: string, params: QueryParameters): Promise<ResultSetHeader>;
     insert(table: string, data: Record<string, MySQLPrimitive>): Promise<ResultSetHeader>;
-    update(table: string, data: Record<string, MySQLPrimitive>, where: Record<string, MySQLPrimitive>): Promise<ResultSetHeader>;
-    delete(table: string, where: Record<string, MySQLPrimitive>): Promise<ResultSetHeader>;
-    /**
-     * [UNSAFE] Selects a single row without Zod validation.
-     * @returns A promise that resolves with the raw RowDataPacket from the database.
-     */
+    insertMany(table: string, data: Record<string, MySQLPrimitive>[]): Promise<ResultSetHeader>;
+    update(table: string, data: Record<string, MySQLPrimitive>, where: WhereCondition): Promise<ResultSetHeader>;
+    delete(table: string, where: WhereCondition): Promise<ResultSetHeader>;
     selectSingleUnsafe(query: string, params: QueryParameters): Promise<RowDataPacket>;
-    /**
-     * [UNSAFE] Selects a single row or null, without Zod validation.
-     * @returns A promise that resolves with the raw RowDataPacket or null.
-     */
     selectSingleOrDefaultUnsafe(query: string, params: QueryParameters): Promise<RowDataPacket | null>;
-    /**
-     * [UNSAFE] Selects multiple rows without Zod validation.
-     * @returns A promise that resolves with an array of raw RowDataPacket objects.
-     */
     selectManyUnsafe(query: string, params: QueryParameters): Promise<RowDataPacket[]>;
-    /**
-     * [UNSAFE] Executes a batch of SQL statements in a single network round trip.
-     * Returns a raw array of results without Zod validation. Use with caution.
-     */
-    executeBatchUnsafe(queries: ParameterizedQuery[]): Promise<UnsafeQueryResult[]>;
-    /**
-     * Executes a batch of SQL statements and validates each result against a corresponding Zod schema.
-     * This is the recommended way to run multiple queries safely and efficiently.
-     */
-    executeBatch<const T extends readonly ZodType[]>(queries: ParameterizedQuery[], schemas: T): Promise<{
-        -readonly [K in keyof T]: z.infer<T[K]>;
+    executeBatchUnsafe(operations: BatchOperation[]): Promise<UnsafeQueryResult[]>;
+    executeBatch<const T extends readonly ZodType[]>(operations: BatchOperation[], schemas: T): Promise<{
+        readonly [K in keyof T]: z.infer<T[K]>;
     }>;
+    executeTransaction<T>(callback: (trx: QueryRunner) => Promise<T>): Promise<T>;
+    close(): Promise<void>;
 }
+export {};

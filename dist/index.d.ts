@@ -4,5 +4,5 @@
  * =================================================================
  */
 export { DatabaseClient, createDatabaseClient } from "./client";
-export type { DatabaseClientOptions, MySQLPrimitive, QueryParameters, QueryRunner, ParameterizedQuery, UnsafeQueryResult, } from "./types";
+export type { DatabaseClientOptions, MySQLPrimitive, QueryParameters, QueryRunner, WhereCondition, BatchOperation, ParameterizedQuery, UnsafeQueryResult, } from "./types";
 export { DatabaseError, NotFoundError, ValidationError } from "./errors";

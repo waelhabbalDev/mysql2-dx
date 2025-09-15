@@ -1,6 +1,6 @@
 {
   "name": "@waelhabbaldev/mysql2-dx",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "description": "A modern, type-safe MySQL client for Node.js with runtime validation via Zod.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,10 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build"
+    "typecheck": "bun tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage"
   },
   "repository": {
     "type": "git",
@@ -31,11 +34,12 @@
   },
   "homepage": "https://codeberg.org/waelhabbal/mysql2-dx#readme",
   "peerDependencies": {
-    "mysql2": "^3.0.0",
-    "zod": "^3.0.0"
+    "mysql2": "^3.14.3",
+    "zod": "^4.0.17"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@types/node": "^20.19.14",
+    "dotenv": "^17.2.2",
+    "typescript": "^5.9.2"
   }
 }

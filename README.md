@@ -1,230 +1,259 @@
-# mysql2-dx v1.0.4
+# mysql2-dx: The Developer-Experience-First MySQL Client
 
 [![NPM Version](https://img.shields.io/npm/v/@waelhabbaldev/mysql2-dx.svg)](https://www.npmjs.com/package/@waelhabbaldev/mysql2-dx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**A modern, type-safe MySQL client for Node.js, featuring runtime validation with Zod, robust transactions, and efficient batch querying.**
+`mysql2-dx` is a lightweight, developer-friendly wrapper for the excellent `mysql2/promise` library. It simplifies common database operations, enforces type safety with [Zod](https://zod.dev/), and provides a clean, consistent API for everything from simple queries to complex, atomic batch operations.
 
-`mysql2-dx` (Developer Experience) is a lightweight, high-performance wrapper around the excellent `mysql2/promise` library. It's designed to provide a superior developer experience by integrating modern TypeScript features and Zod for runtime validation, eliminating common database-related bugs and boilerplate.
+This library is designed to reduce boilerplate, prevent common errors, and make your database interactions intuitive and safe.
 
 ### Key Features
 
--   **✅ End-to-End Type Safety:** Write your queries and get back fully-typed results, validated at runtime.
--   **⚡️ Efficient Batch Operations:** Execute multiple queries in a single network round trip to dramatically improve performance.
--   **🔒 Zod Integration:** Define your data shapes once with Zod schemas and get automatic validation and type inference.
--   **🔐 Robust Transactions:** A clean, promise-based transaction API that automatically handles commits, rollbacks, and connection releasing.
--   **🚀 Simple & Clean API:** Intuitive methods (`selectSingle`, `insert`, etc.) that are easy to learn and use.
--   **⚙️ Zero-Config Setup:** Automatically configures from standard environment variables.
--   **🐞 Enhanced Debugging:** Optional verbose logging that prints formatted queries, parameters, and timings.
+-   **Type-Safe by Default:** Uses Zod schemas to validate and type your database results, catching data errors at the boundary.
+-   **Powerful "Prisma-like" WHERE Clauses:** Build complex `UPDATE` and `DELETE` queries with a simple, nestable object syntax (`gt`, `in`, `OR`, `AND`, etc.).
+-   **Simplified CUD API:** Intuitive methods like `insert`, `update`, and `delete` reduce boilerplate.
+-   **Robust Transactions:** A simple `executeTransaction` block that automatically handles `COMMIT` and `ROLLBACK`.
+-   **Atomic & Parameterized Batching:** Run a mix of raw SQL and helper operations in a single, atomic transaction with `executeBatch`.
+-   **Explicit Configuration:** No magic. You provide the configuration, giving you full control.
+-   **Clear Error Handling:** Custom error types (`NotFoundError`, `ValidationError`) make catching specific issues easy.
+-   **Optional Verbose Logging:** A `verbose` mode for beautiful, color-coded query logging during development.
 
-### Installation
+## Installation
 
 ```bash
-npm install mysql2-dx mysql2 zod
+npm install @waelhabbaldev/mysql2-dx mysql2 zod
 ```
 
-### Quick Start
+## Quick Start
 
-1.  **Set up your environment variables** in a `.env` file:
-    ```env
-    MYSQL_HOST=127.0.0.1
-    MYSQL_PORT=3306
-    MYSQL_USER=root
-    MYSQL_PASSWORD=your_password
-    MYSQL_DATABASE=your_db
-    ```
-
-2.  **Create the client and run a query:**
-    ```typescript
-    import { createDatabaseClient } from "mysql2-dx";
-    import { z } from "zod";
-
-    // Create a single, shared client instance
-    const dbClient = createDatabaseClient({ verbose: true });
-
-    // Define a Zod schema for your data
-    const userSchema = z.object({
-      id: z.string().uuid(),
-      name: z.string(),
-      email: z.string().email(),
-    });
-
-    async function getUser(userId: string) {
-      try {
-        const user = await dbClient.selectSingle(
-          "SELECT * FROM users WHERE id = ?",
-          [userId],
-          userSchema
-        );
-
-        console.log(`Welcome, ${user.name}!`);
-        // user is fully typed as { id: string; name: string; email: string; }
-      } catch (error) {
-        // Handles NotFoundError, ValidationError, etc.
-        console.error("Failed to fetch user:", error);
-      }
-    }
-    ```
-
-### API Reference
-
-#### Fetching Data (Safe Methods)
-
--   `selectSingle(sql, params, schema)`: Fetches exactly one row. Throws `NotFoundError` if none is found.
--   `selectSingleOrDefault(sql, params, schema)`: Fetches one row or `null`.
--   `selectMany(sql, params, schema)`: Fetches an array of rows. Returns `[]` if none are found.
-
-#### Modifying Data
-
--   `insert(tableName, dataObject)`: Safely inserts a new row.
--   `update(tableName, dataObject, whereObject)`: Safely updates rows matching the where clause.
--   `delete(tableName, whereObject)`: Safely deletes rows.
--   `modify(sql, params)`: For complex updates, deletes, or DDL statements. Returns a `ResultSetHeader`.
-
-#### Transactions
-
-The `executeTransaction` method guarantees that all operations within the callback are atomic. It automatically handles commits, rollbacks, and connection releasing.
+`mysql2-dx` requires you to explicitly provide your database configuration. This ensures your application has full control over how it connects.
 
 ```typescript
-async function transferFunds(fromId: string, toId: string, amount: number) {
-  return dbClient.executeTransaction(async (trx) => {
-    // 'trx' has the same methods as dbClient (selectSingle, update, etc.)
-    await trx.modify(
-      "UPDATE accounts SET balance = balance - ? WHERE id = ?",
-      [amount, fromId]
+import { createDatabaseClient } from "@waelhabbaldev/mysql2-dx";
+import { z } from "zod";
+
+// 1. Define your database configuration
+const dbConfig = {
+  host: "127.0.0.1",
+  port: 3306,
+  user: "root",
+  password: "your_password",
+  database: "your_db",
+};
+
+// 2. Create the client
+const db = createDatabaseClient({ config: dbConfig, verbose: true });
+
+// 3. Define a Zod schema for your data
+const UserSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.string().email(),
+  age: z.number().nullable(),
+});
+
+async function main() {
+  try {
+    // Fetch a single user
+    const user = await db.selectSingle(
+      "SELECT * FROM users WHERE id = ?",
+      [1],
+      UserSchema
     );
-    await trx.modify(
-      "UPDATE accounts SET balance = balance + ? WHERE id = ?",
-      [amount, toId]
+    console.log("Found user:", user.name);
+
+    // Insert a new user
+    const result = await db.insert("users", {
+      name: "Jane Doe",
+      email: "jane.doe@example.com",
+    });
+    console.log(`New user created with ID: ${result.insertId}`);
+  } catch (error) {
+    console.error("Database operation failed:", error);
+  } finally {
+    // 4. Always close the connection pool when your app shuts down
+    await db.close();
+  }
+}
+
+main();
+```
+
+## Core API
+
+### Fetching Data (`select*`)
+
+These methods are for running `SELECT` queries and validating the results against a Zod schema.
+
+-   `selectSingle<T>(query, params, schema)`: Fetches **exactly one** row. Throws a `NotFoundError` if no rows are found.
+-   `selectSingleOrDefault<T>(query,params,schema)`: Fetches one row or `null` if no rows are found.
+-   `selectMany<T>(query, params, schema)`: Fetches an array of rows. Returns an empty array `[]` if no rows are found.
+
+### Modifying Data (`insert`, `update`, `delete`)
+
+#### `insert` and `insertMany`
+
+-   `insert(table, data)`: Inserts a new row.
+-   `insertMany(table, data[])`: Inserts multiple rows efficiently.
+
+```typescript
+// Insert a single user
+await db.insert("users", { name: "John", email: "john@example.com" });
+
+// Insert multiple users
+await db.insertMany("users", [
+  { name: "Alice", email: "alice@example.com" },
+  { name: "Bob", email: "bob@example.com" },
+]);
+```
+
+#### `update` and `delete` with Advanced `WHERE`
+
+These methods use a powerful and intuitive `WhereCondition` object to build complex queries safely.
+
+**Basic `AND` (Implicit):**
+Keys in the same object are joined with `AND`.
+
+```typescript
+// WHERE status = 'active' AND age > 30
+await db.update("users", 
+  { last_login: new Date() },
+  {
+    status: 'active',
+    age: { gt: 30 } // gt = greater than
+  }
+);
+```
+
+**Complex `OR` and Nesting:**
+Use the `OR`, `AND`, and `NOT` keys for explicit logical grouping.
+
+```typescript
+// WHERE role = 'user' AND (email LIKE '%@gmail.com' OR age IN (20, 30))
+await db.delete("users", {
+  role: 'user',
+  OR: [
+    { email: { endsWith: '@gmail.com' } },
+    { age: { in: [20, 30] } }
+  ]
+});
+
+// WHERE age > 30 OR (name = 'Alice' AND status = 'inactive')
+await db.update("users", { status: 'archived' }, {
+  OR: [
+    { age: { gt: 30 } },
+    { name: 'Alice', status: 'inactive' }
+  ]
+});
+```
+
+**Available Operators:**
+-   `equals`, `not`
+-   `in`, `notIn`
+-   `lt` (less than), `lte` (less than or equal)
+-   `gt` (greater than), `gte` (greater than or equal)
+-   `contains`, `startsWith`, `endsWith` (for `LIKE` operations)
+
+### Transactions
+
+The `executeTransaction` method ensures a group of queries are executed atomically. It automatically handles `BEGIN`, `COMMIT`, and `ROLLBACK` for you.
+
+```typescript
+async function transferFunds(fromId: number, toId: number, amount: number) {
+  return db.executeTransaction(async (trx) => {
+    // 'trx' has the same API as 'db', but all queries run in this transaction
+    const sender = await trx.selectSingle(
+      "SELECT balance FROM accounts WHERE id = ?", [fromId], z.object({ balance: z.number() })
     );
-    return { success: true };
+
+    if (sender.balance < amount) {
+      // This error will automatically trigger a ROLLBACK
+      throw new Error("Insufficient funds.");
+    }
+
+    await trx.update("accounts", { balance: sender.balance - amount }, { id: fromId });
+    await trx.update("accounts", { balance: trx.raw('balance + ?', [amount]) }, { id: toId }); // Note: raw expressions not yet supported, use modify instead.
+
+    // Correct way with modify for raw expressions:
+    await trx.modify("UPDATE accounts SET balance = balance + ? WHERE id = ?", [amount, toId]);
+
+    console.log("Transfer successful!");
   });
 }
 ```
 
-## ✨ New in v1.0.9: Bulk Inserts with insertMany ✨
+### Atomic Batch Operations
 
-This version introduces the highly-requested insertMany method, designed for efficiently inserting large amounts of data in a single database call.
+`executeBatch` allows you to run multiple, different operations as a single, atomic unit. It's perfect for complex workflows. You can mix raw SQL with CUD helpers.
 
-When you need to insert multiple rows (e.g., from a CSV import, API payload, or database seed), making individual insert calls in a loop is inefficient due to network latency and database overhead. The new insertMany method solves this by constructing a single, optimized INSERT INTO ... VALUES (...), (...), ... statement. This dramatically reduces execution time for bulk data operations.
-The method is safe, secure, and leverages the underlying mysql2 driver's powerful parameter formatting to prevent SQL injection. It also works seamlessly within transactions.
-
-Example: Seeding a users table with multiple records.
+**Important:** You must use `as const` on the schemas array to ensure TypeScript can infer the correct return types.
 
 ```typescript
-const newUsers = [
-  { name: 'Alice', email: 'alice@example.com', status: 'active' },
-  { name: 'Bob', email: 'bob@example.com', status: 'pending' },
-  { name: 'Charlie', email: 'charlie@example.com', status: 'active' }
-];
-
-
-// This sends a single, efficient query to the database
-const result = await dbClient.insertMany('users', newUsers);
-
-// The result is a standard ResultSetHeader
-console.log(`${result.affectedRows} users were inserted in a single batch.`);
-```
-
----
-
-### ✨ New in v1.0.5: Constructor Enhancements and Robust Port Validation ✨
-
-This update introduces a refined `DatabaseClient` constructor and a more robust port validation schema.
-
-We've made the constructor more flexible and intuitive. You can now instantiate the client with an optional configuration object. If provided, this configuration will be used to establish the connection pool. If no configuration is supplied, the client will automatically and safely fall back to using standard `MYSQL_` environment variables.
-
-Additionally, we've improved the port validation to be more precise. The Zod schema for the `MYSQL_PORT` environment variable now strictly ensures the value is an integer and falls within the valid range for TCP ports, from 0 to 65535. This guarantees that your connection is configured with a valid port number, reducing potential runtime errors.
-
-**Example 1: Using an explicit configuration object**
-
-```typescript
-const dbClient = new DatabaseClient({
-  config: {
-    host: 'localhost',
-    port: 3306,
-    user: 'root',
-    password: 'secure_password',
-    database: 'my_app_db',
-  },
-});
-```
-
-**Example 2: Defaulting to environment variables**
-
-```typescript
-// Client will automatically use the standard MYSQL_* environment variables.
-const dbClient = new DatabaseClient(); 
-```
----
-
-### ✨ New in v1.0.4: Batch Operations
-
-Reduce network latency by sending multiple queries to the database in a single round trip. This is ideal for dashboards or pages that need to fetch several different pieces of data.
-
-`executeBatch` takes an array of queries and a corresponding tuple of Zod schemas, returning a perfectly typed tuple of results.
-
-**Example: Fetch a user's profile and their 5 most recent posts in one trip.**
-
-```typescript
-import { DatabaseClient } from "mysql2-dx"; // Import the class for the static property
-
-const [user, posts, updateResult] = await dbClient.executeBatch(
+const [adminUser, updateResult, deleteResult] = await db.executeBatch(
   [
-    // Query 1: Get user profile
-    { sql: "SELECT * FROM users WHERE id = ?", params: [userId] },
-    // Query 2: Get 5 recent posts
-    { sql: "SELECT id, title, createdAt FROM posts WHERE authorId = ? LIMIT 5", params: [userId] },
-    // Query 3: An update statement
-    { sql: "UPDATE users SET lastActive = NOW() WHERE id = ?", params: [userId] }
+    // 1. A raw, parameterized SELECT query
+    {
+      sql: 'SELECT * FROM users WHERE id = ?',
+      params: [1]
+    },
+
+    // 2. An UPDATE operation using the rich WhereCondition object
+    {
+      op: 'update',
+      table: 'users',
+      data: { status: 'archived' },
+      where: { last_login: { lt: '2023-01-01' }, status: 'active' }
+    },
+
+    // 3. A DELETE operation
+    {
+      op: 'delete',
+      table: 'login_attempts',
+      where: { user_id: { in: [10, 11, 12] } }
+    }
   ],
-  // Schemas must be in the same order as the queries
+  // Schemas array must match the operations array
   [
-    userSchema,
-    postSchema.pick({ id: true, title: true, createdAt: true }), // Schema for query 2
-    DatabaseClient.MODIFY_SCHEMA, // A special schema for INSERT/UPDATE/DELETE
-  ]
+    UserSchema,                      // For the SELECT
+    DatabaseClient.MODIFY_SCHEMA,    // For the UPDATE
+    DatabaseClient.MODIFY_SCHEMA     // For the DELETE
+  ] as const
 );
 
-// The return type is a perfectly inferred tuple:
-// user: TUser
-// posts: TPost[]
-// updateResult: ResultSetHeader
+console.log(`Found admin: ${adminUser.name}`);
+console.log(`Archived ${updateResult.affectedRows} users.`);
 ```
 
 ### Unsafe Methods
 
-For performance-critical situations where you want to skip Zod validation, "unsafe" variants are available. They return raw `RowDataPacket` objects from `mysql2`.
+For performance-critical situations or when you want to bypass Zod validation, "unsafe" methods are available. They return raw `RowDataPacket` objects from `mysql2`. Use them with caution.
 
--   `selectSingleUnsafe(sql, params)`
--   `selectSingleOrDefaultUnsafe(sql, params)`
--   `selectManyUnsafe(sql, params)`
--   `executeBatchUnsafe(queries)`
+-   `selectSingleUnsafe(query, params)`
+-   `selectSingleOrDefaultUnsafe(query, params)`
+-   `selectManyUnsafe(query, params)`
+-   `executeBatchUnsafe(operations)`
 
 ### Error Handling
 
-The client throws distinct error types to allow for precise error handling:
--   `DatabaseError`: A generic database-related error.
+`mysql2-dx` exports custom errors to help you write more precise `try...catch` blocks.
+
+-   `DatabaseError`: The base error for all library-specific issues.
 -   `NotFoundError`: Thrown by `selectSingle` when no record is found.
--   `ValidationError`: Thrown when data fetched from the DB fails to match your Zod schema.
+-   `ValidationError`: Thrown when database results fail Zod parsing.
 
 ```typescript
-import { NotFoundError, ValidationError } from "mysql2-dx";
+import { NotFoundError, ValidationError } from "@waelhabbaldev/mysql2-dx";
 
 try {
-  // ... dbClient call
+  const user = await db.selectSingle(/* ... */);
 } catch (error) {
   if (error instanceof NotFoundError) {
-    // Handle 404
+    // Handle case where user does not exist
   } else if (error instanceof ValidationError) {
-    // Data integrity issue, log the validation errors
-    console.error(error.cause);
+    // Handle schema mismatch (e.g., log to an error service)
+    console.error("Data validation failed:", error.cause);
   } else {
-    // Handle other errors
+    // Handle other database errors (connection, syntax, etc.)
   }
 }
 ```
-
-### License
-
-MIT
