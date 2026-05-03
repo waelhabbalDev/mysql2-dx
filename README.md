@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <div align="center">
-  <img src="https://codeberg.org/waelhabbal/mysql2-dx/media/branch/main/assets/icon.png" alt="MySql-DX" width="256" height="256">
+  <img src="assets/icon.png" alt="mysql2-dx logo" width="200">
 </div>
 
 
